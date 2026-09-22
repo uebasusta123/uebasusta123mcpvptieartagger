@@ -1,0 +1,33 @@
+{
+	"schemaVersion": 1,
+	"id": "uebasusta123mcpvptieartagger",
+	"version": "${version}",
+	"name": "uebasusta123mcpvptieartagger",
+	"description": "Oyuncunun en iyi MCPVP tierini oyun modu simgesiyle TAB listesinde ve kafa üstünde gösterir. Client-side; resmî MCPvP modu değildir.",
+	"icon": "assets/uebasusta123mcpvptieartagger/icon.png",
+	"authors": [
+		"uebasusta123"
+	],
+	"license": "MIT",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"dev.uebasusta.tiertagger.McpvpTierTaggerClient"
+		]
+	},
+	"mixins": [
+		{
+			"config": "uebasusta123mcpvptieartagger.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"breaks": {
+		"universal_tier_tagger": "*"
+	},
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": "~26.2",
+		"java": ">=25",
+		"fabric-api": ">=0.153.0+26.2"
+	}
+}
