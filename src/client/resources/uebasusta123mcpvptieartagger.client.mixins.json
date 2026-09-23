@@ -3,6 +3,7 @@
 	"package": "dev.uebasusta.tiertagger.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
+		"EntityRenderStateMixin",
 		"EntityRendererMixin",
 		"PlayerTabOverlayMixin"
 	],

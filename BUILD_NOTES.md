@@ -1,30 +1,28 @@
-# 1.1.1 doğrulama notları
+# 1.1.2 doğrulama notları
 
 - Hedef: Minecraft 26.2, Java 25, Fabric Loader 0.19.3, Fabric API 0.153.0+26.2.
-- Bütün mod kaynakları JDK 25 ile yerelde bu hedeflere karşı derlendi.
-- `TierLogicChecks`: 386 kontrol başarılı. Önceki 354 kontrole ek olarak TAB'da
-  listelenmeyen dünya oyuncuları, profil/display adı ayrımı, tekilleştirme, bozuk
-  adlar, tarama aralığı, dünya değişimi, yeniden bağlanma, devre dışı bırakma,
-  orijinal isim stilini koruma ve gizli etiketi zorla göstermeme kontrol edildi.
-- `extractNameTags(Entity, EntityRenderState, float, double, double)` ve
-  `ClientLevel.players()` hedefleri gerçek 26.2 bytecode'u üzerinde kontrol edildi.
-- Tam Gradle/Loom derlemesi ve aynı kontroller GitHub `build` ve `release`
-  iş akışlarında çalışır. Release iş akışı yalnızca `./gradlew build` başarılı
-  olduktan sonra JAR yayımlar; mevcut 1.1.0 sürümünü değiştirmez.
-- Gerçek Minecraft istemcisinde veya DonutSMP'de canlı görsel/uçtan uca test yapılmadı.
-  Bu testler Mixin'in oyun içinde uygulanmasının ve sunucuya özel eklentilerin
-  görsel kontrolünün yerine geçmez.
+- Yeni çizim vanilla isim etiketi null/boş olsa da bağımsız bir tier bileşeni kullanır.
+  Sunucu adı ve scoreText değiştirilmez; ayrı veri render state içinde taşınır.
+- `EntityRenderer.extractNameTags(...)` ve final `submitNameDisplay(..., int)` hedefleri
+  gerçek Minecraft 26.2 bytecode'unda doğrulandı. AvatarRenderer'ın bu gönderim
+  metodunu çağırdığı ve `submitNameTag(..., false, ...)` kullanımının yalnızca
+  normal, derinlik testi olan çizim kolunu kullandığı kontrol edildi.
+- Regresyon kapsamı: normal/null/boş isimler, çift etiket oluşturmama, seçili kit,
+  eski ayarların taşınması, yeni ayarın kapanması, görünürlük/mesafe/görüş hattı koşulları,
+  gönderim parametreleri ve HTTP hatalarının gerçek boş sonuçtan ayrılması.
+- Yerel Gradle denemesi Loom eklentisini çözemedi. Kaynaklar mevcut JDK/bağımlılıklar
+  ile ayrıca derlenip regresyon kontrolleri çalıştırılır; tam Gradle derlemesi
+  GitHub build/release iş akışlarında zorunludur.
+- DonutSMP veya gerçek oyun penceresinde görsel test yapılmadı. Birim kontrolleri,
+  mixin hedef kontrolü ve derleme, sunucu üstündeki görsel testin yerine geçmez.
 
-## Oyun içi kısa kontrol listesi
+## Oyun içi kontrol
 
-1. Eski Tier Tagger JAR'ını çıkar, yalnızca 1.1.1 JAR'ını kur.
-2. `/utier mode highest` ve `/utier refresh` kullan; kafa üstü etiketleri açık olsun.
-3. MCPvP kaydı olan, yakında duran fakat TAB'da listelenmeyen bir oyuncuyu kontrol et.
-   TAB'ı açmadan birkaç saniye bekle; internet/API yoğunluğu süreyi uzatabilir.
-4. `/utier <gerçek_profil_adı>` sonucu ile kafa üstü tierini karşılaştır.
-5. `/utier tab` ile TAB etiketlerini kapat; kafa üstü etiketleri çalışmaya devam etmeli.
-6. Sunucudan çıkıp yeniden gir; `/utier nametag` ile kafa üstü etiketlerini aç/kapat.
-7. API'de olmayan oyuncuya tier eklenmediğini, sunucunun öneklerinin korunduğunu kontrol et.
-8. Sunucu normal isimleri gizleyip özel hologram çiziyorsa veya nick/disguise kullanıyorsa
-   README'deki sınırlamalara bak. Sorun sürerse oyun sürümü, mod listesi, ekran görüntüsü
-   ve `logs/latest.log` dosyasını paylaş; hesap parolası/token'ı paylaşma.
+1. Eski mod JAR'ını çıkarıp 1.1.2'yi kur; oyunu yeniden başlat.
+2. `/utier debug` ile sürümün 1.1.2, nametag ve fallback değerlerinin true olduğunu doğrula.
+3. MCPvP tieri bilinen, TAB'da olmayan yakındaki görünür oyuncuyu incele.
+4. `/utier debug <oyuncu>` ile profil, dünya/TAB ve MCPvP sonucunu karşılaştır.
+5. Normal isimli bir oyuncuda tek etiket olduğunu kontrol et.
+6. Ayrı etiket duvar arkasında/eğilirken/görünmezken, uzaklaşınca veya F1 ile görünmemeli.
+7. `/utier fallback` ve `/utier nametag` ile kapatmayı, yeniden bağlanmayı kontrol et.
+8. DonutSMP'deki sonuç için debug çıktısı ve kafa üstü ekran görüntüsünü paylaş.

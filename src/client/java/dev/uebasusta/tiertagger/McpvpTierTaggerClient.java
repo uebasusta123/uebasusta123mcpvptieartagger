@@ -13,6 +13,7 @@ import java.util.Locale;
 
 public final class McpvpTierTaggerClient implements ClientModInitializer {
 	public static final String MOD_ID = "uebasusta123mcpvptieartagger";
+	public static final String VERSION = "1.1.2";
 
 	@Override
 	public void onInitializeClient() {
@@ -32,7 +33,7 @@ public final class McpvpTierTaggerClient implements ClientModInitializer {
 		ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
 			var command = dispatcher.register(ClientCommands.literal(MOD_ID)
 				.executes(context -> {
-					send(Component.literal(MOD_ID + ": /utier <oyuncu>, /utier mode highest, /utier tab, /utier nametag, /utier icons, /utier refresh")
+					send(Component.literal(MOD_ID + " " + VERSION + ": /utier <oyuncu>, /utier mode highest, /utier tab, /utier nametag, /utier fallback, /utier icons, /utier refresh, /utier debug [oyuncu]")
 						.withStyle(ChatFormatting.AQUA));
 					return 1;
 				})
@@ -71,6 +72,22 @@ public final class McpvpTierTaggerClient implements ClientModInitializer {
 					send(toggleMessage("Oyun modu simgeleri", TierSettings.get().showIcons));
 					return 1;
 				}))
+				.then(ClientCommands.literal("fallback").executes(context -> {
+					TierSettings.get().showFallbackTags = !TierSettings.get().showFallbackTags;
+					TierSettings.save();
+					send(toggleMessage("Özel etiket desteği", TierSettings.get().showFallbackTags));
+					return 1;
+				}))
+				.then(ClientCommands.literal("debug")
+					.executes(context -> {
+						TierDiagnostics.show(null, McpvpTierTaggerClient::send);
+						return 1;
+					})
+					.then(ClientCommands.argument("player", StringArgumentType.word()).executes(context -> {
+						String name = StringArgumentType.getString(context, "player");
+						TierDiagnostics.show(name, McpvpTierTaggerClient::send);
+						return lookupPlayer(name);
+					})))
 				.then(ClientCommands.literal("refresh").executes(context -> {
 					TierService.get().clearCache();
 					send(Component.literal("Tier cache temizlendi.").withStyle(ChatFormatting.GREEN));
@@ -78,24 +95,32 @@ public final class McpvpTierTaggerClient implements ClientModInitializer {
 				}))
 				.then(ClientCommands.argument("player", StringArgumentType.word()).executes(context -> {
 					String playerName = StringArgumentType.getString(context, "player");
-					if (!TierService.isValidPlayerName(playerName)) {
-						send(Component.literal("Geçersiz oyuncu adı.").withStyle(ChatFormatting.RED));
-						return 0;
-					}
-
-					send(Component.literal(playerName + " aranıyor...").withStyle(ChatFormatting.GRAY));
-					TierService.get().lookup(playerName, result -> Minecraft.getInstance().execute(() -> {
-						if (result.isEmpty()) {
-							send(Component.literal(playerName + " için MCPvP tier kaydı bulunamadı.").withStyle(ChatFormatting.YELLOW));
-							return;
-						}
-						send(TierTagFormatter.fullCard(result.get()));
-					}));
-					return 1;
+					return lookupPlayer(playerName);
 				}))
 			);
 			dispatcher.register(ClientCommands.literal("utier").executes(command.getCommand()).redirect(command));
 		});
+	}
+
+	private static int lookupPlayer(String playerName) {
+		if (!TierService.isValidPlayerName(playerName)) {
+			send(Component.literal("Geçersiz oyuncu adı.").withStyle(ChatFormatting.RED));
+			return 0;
+		}
+		send(Component.literal(playerName + " aranıyor...").withStyle(ChatFormatting.GRAY));
+		TierService.get().lookup(playerName, result -> Minecraft.getInstance().execute(() -> {
+			if (!result.successful()) {
+				send(Component.literal("MCPvP sorgusu başarısız: " + result.error()
+					+ ". Bu, oyuncunun kaydı olmadığı anlamına gelmez.").withStyle(ChatFormatting.RED));
+				return;
+			}
+			if (result.data() == null) {
+				send(Component.literal(playerName + " için MCPvP tier kaydı bulunamadı.").withStyle(ChatFormatting.YELLOW));
+				return;
+			}
+			send(TierTagFormatter.fullCard(result.data()));
+		}));
+		return 1;
 	}
 
 	private static Component toggleMessage(String label, boolean enabled) {

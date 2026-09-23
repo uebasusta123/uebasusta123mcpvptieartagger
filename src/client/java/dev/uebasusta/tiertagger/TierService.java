@@ -15,7 +15,6 @@ import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -64,8 +63,25 @@ public final class TierService {
 		return cached == null ? null : cached.data();
 	}
 
-	public void lookup(String playerName, Consumer<Optional<TierData>> callback) {
-		workers.execute(() -> callback.accept(Optional.ofNullable(fetchAndCache(playerName))));
+	public void lookup(String playerName, Consumer<LookupResult> callback) {
+		if (!isValidPlayerName(playerName)) {
+			callback.accept(new LookupResult(null, "Geçersiz oyuncu adı"));
+			return;
+		}
+		workers.execute(() -> callback.accept(fetchAndCache(playerName)));
+	}
+
+	/** Read-only diagnostics: this method never queues a request. */
+	public String status(String playerName) {
+		if (!isValidPlayerName(playerName)) return "geçersiz profil adı";
+		String key = normalize(playerName);
+		if (inFlight.contains(key)) return "sorgu bekleniyor";
+		CacheEntry entry = cache.get(key);
+		if (entry == null) return "henüz sorgulanmadı";
+		if (entry.error() != null) return "API hatası: " + entry.error();
+		if (entry.data() == null) return "MCPvP kaydı yok";
+		return entry.data().select(TierSettings.get().mode)
+			.map(tier -> tier.kit() + " " + tier.tier()).orElse("seçili kitte tier yok");
 	}
 
 	public void clearCache() {
@@ -91,24 +107,26 @@ public final class TierService {
 		});
 	}
 
-	private TierData fetchAndCache(String playerName) {
+	private LookupResult fetchAndCache(String playerName) {
 		String key = normalize(playerName);
 		TierData tierData = null;
 		boolean success = false;
+		String error = null;
 		try {
 			String encodedName = URLEncoder.encode(playerName, StandardCharsets.UTF_8);
 			HttpRequest request = HttpRequest.newBuilder(URI.create(API_URL + encodedName))
 				.timeout(Duration.ofSeconds(12))
 				.header("Accept", "application/json")
-				.header("User-Agent", McpvpTierTaggerClient.MOD_ID + "/1.1.1")
+				.header("User-Agent", McpvpTierTaggerClient.MOD_ID + "/" + McpvpTierTaggerClient.VERSION)
 				.GET()
 				.build();
 			HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-			if (response.statusCode() == 200) {
-				tierData = parseExactPlayer(response.body(), playerName);
-				success = true;
-			}
+			LookupResult result = parseResponse(response.statusCode(), response.body(), playerName);
+			tierData = result.data();
+			success = result.successful();
+			error = result.error();
 		} catch (IOException | InterruptedException | RuntimeException exception) {
+			error = exception instanceof RuntimeException ? "Geçersiz API yanıtı" : exception.getClass().getSimpleName();
 			if (exception instanceof InterruptedException) {
 				Thread.currentThread().interrupt();
 			}
@@ -118,8 +136,17 @@ public final class TierService {
 			CacheEntry previous = cache.get(key);
 			tierData = previous == null ? null : previous.data();
 		}
-		cache.put(key, new CacheEntry(tierData, System.currentTimeMillis() + (success ? CACHE_TIME_MS : ERROR_RETRY_MS)));
-		return tierData;
+		cache.put(key, new CacheEntry(tierData, System.currentTimeMillis() + (success ? CACHE_TIME_MS : ERROR_RETRY_MS), error));
+		return new LookupResult(tierData, error);
+	}
+
+	static LookupResult parseResponse(int statusCode, String body, String playerName) {
+		if (statusCode != 200) return new LookupResult(null, "HTTP " + statusCode);
+		try {
+			return new LookupResult(parseExactPlayer(body, playerName), null);
+		} catch (RuntimeException exception) {
+			return new LookupResult(null, "Geçersiz API yanıtı");
+		}
 	}
 
 	static TierData parseExactPlayer(String json, String requestedName) {
@@ -170,6 +197,12 @@ public final class TierService {
 		return name != null && PLAYER_NAME.matcher(name).matches();
 	}
 
-	private record CacheEntry(TierData data, long expiresAt) {
+	public record LookupResult(TierData data, String error) {
+		public boolean successful() {
+			return error == null;
+		}
+	}
+
+	private record CacheEntry(TierData data, long expiresAt, String error) {
 	}
 }

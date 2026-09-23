@@ -82,9 +82,16 @@ public final class TierLogicChecks {
 		check(!icon.getStyle().isBold() && !icon.getStyle().isItalic(), "icon not distorted by text style");
 		checkWorldPlayerPrefetch();
 		checkNameTagFormatting();
+		checkStandaloneTags();
+		checkApiDiagnostics();
 		checkMinecraftTargets();
 
 		Path resources = Path.of("src/main/resources");
+		java.util.Properties properties = new java.util.Properties();
+		try (var reader = Files.newBufferedReader(Path.of("gradle.properties"))) {
+			properties.load(reader);
+		}
+		check(McpvpTierTaggerClient.VERSION.equals(properties.getProperty("version")), "command/API version matches release");
 		JsonObject metadata = JsonParser.parseString(Files.readString(resources.resolve("fabric.mod.json"))).getAsJsonObject();
 		check(metadata.get("id").getAsString().equals("uebasusta123mcpvptieartagger"), "mod identity");
 		check(metadata.get("name").getAsString().equals(metadata.get("id").getAsString()), "display name");
@@ -120,11 +127,15 @@ public final class TierLogicChecks {
 			check(TierSettings.get().mode.equals("highest"), "migration defaults to best tier");
 			check(TierSettings.get().showIcons && TierSettings.get().showKit, "migration enables kit icons");
 			check(!TierSettings.get().showInTab && TierSettings.get().showAboveHead, "display toggles preserved");
+			check(TierSettings.get().showFallbackTags, "old configs gain standalone tag support");
 			check(Files.readString(legacy).equals(oldSettings), "legacy settings preserved");
 			check(Files.isRegularFile(current), "new config created");
 			Files.writeString(current, "{\"mode\":\"mace\",\"showIcons\":false}");
 			TierSettings.load(configDir);
 			check(TierSettings.get().mode.equals("mace") && !TierSettings.get().showIcons, "new settings take precedence");
+			Files.writeString(current, "{\"showFallbackTags\":false}");
+			TierSettings.load(configDir);
+			check(!TierSettings.get().showFallbackTags, "explicit standalone opt-out preserved");
 			Files.writeString(current, "{\"mode\":null}");
 			TierSettings.load(configDir);
 			check(TierSettings.get().mode.equals("highest"), "null mode fallback");
@@ -137,6 +148,85 @@ public final class TierLogicChecks {
 			Files.deleteIfExists(configDir);
 		}
 		System.out.println("PASS: " + checks + " checks (ranking, API parsing, world-player prefetch, nametags, Minecraft targets, fonts, metadata, settings)");
+	}
+
+	private static void checkStandaloneTags() {
+		TierSettings settings = TierSettings.get();
+		TierData ranked = data(Map.of("sword", "HT2"));
+		var hidden = NameTagPresentation.plan(null, ranked, settings, true);
+		check(hidden.vanilla() == null, "server-hidden vanilla name stays hidden");
+		check(hidden.standalone() != null && hidden.standalone().getString().equals(" [\uE000 MCPVP HT2]"),
+			"ranked world-only player gets a separate tier even with a null vanilla name");
+		Component blank = Component.empty();
+		var empty = NameTagPresentation.plan(blank, ranked, settings, true);
+		check(empty.vanilla() == blank && empty.standalone() != null, "empty custom vanilla name also uses separate tier");
+		Component original = Component.literal("[VIP] TestPlayer").withStyle(net.minecraft.ChatFormatting.GREEN);
+		var ordinary = NameTagPresentation.plan(original, ranked, settings, true);
+		check(ordinary.standalone() == null && ordinary.vanilla().getString().equals("[VIP] TestPlayer [\uE000 MCPVP HT2]"),
+			"ordinary names are augmented once without duplicate standalone label");
+		check(original.getString().equals("[VIP] TestPlayer") && ordinary.vanilla().getStyle().equals(original.getStyle()),
+			"standalone planning preserves server text and style");
+		check(NameTagPresentation.plan(null, ranked, settings, false).standalone() == null, "occluded or otherwise ineligible player has no fallback");
+		check(NameTagPresentation.plan(null, null, settings, true).standalone() == null, "pending lookup never makes an empty label");
+		check(NameTagPresentation.plan(null, data(Map.of()), settings, true).standalone() == null, "no fake tier for unranked players");
+		try {
+			settings.showFallbackTags = false;
+			check(NameTagPresentation.plan(null, ranked, settings, true).standalone() == null, "standalone toggle disables fallback");
+			check(NameTagPresentation.plan(original, ranked, settings, true).vanilla().getString().contains("HT2"), "fallback toggle preserves ordinary nametags");
+			settings.showFallbackTags = true;
+			settings.showAboveHead = false;
+			check(NameTagPresentation.plan(null, ranked, settings, true).standalone() == null, "nametag toggle disables fallback too");
+			settings.showAboveHead = true;
+			settings.enabled = false;
+			check(NameTagPresentation.plan(null, ranked, settings, true).standalone() == null, "disabled mod creates no standalone tags");
+			settings.enabled = true;
+			settings.mode = "mace";
+			check(NameTagPresentation.plan(null, ranked, settings, true).standalone() == null, "no fallback tier in an unranked selected kit");
+		} finally {
+			settings.showFallbackTags = true;
+			settings.showAboveHead = true;
+			settings.enabled = true;
+			settings.mode = "highest";
+		}
+		check(NameTagPresentation.permitsFallback(true, true, true, true, false, false, true, 16), "nearby visible player allowed");
+		check(!NameTagPresentation.permitsFallback(false, true, true, true, false, false, true, 16), "F1 hides fallback");
+		check(!NameTagPresentation.permitsFallback(true, false, true, true, false, false, true, 16), "no fallback on self/camera");
+		check(!NameTagPresentation.permitsFallback(true, true, false, true, false, false, true, 16), "invisible player hidden");
+		check(!NameTagPresentation.permitsFallback(true, true, true, false, false, false, true, 16), "dead/removed player hidden");
+		check(!NameTagPresentation.permitsFallback(true, true, true, true, true, false, true, 16), "spectator hidden");
+		check(!NameTagPresentation.permitsFallback(true, true, true, true, false, true, true, 16), "sneaking player hidden");
+		check(!NameTagPresentation.permitsFallback(true, true, true, true, false, false, false, 16), "player behind wall hidden");
+		for (double distance : new double[] {4096, 10000, -1, Double.NaN, Double.POSITIVE_INFINITY}) {
+			check(!NameTagPresentation.permitsFallback(true, true, true, true, false, false, true, distance), "invalid/outside name range: " + distance);
+		}
+		var calls = new ArrayList<Object[]>();
+		var collector = (net.minecraft.client.renderer.SubmitNodeCollector) java.lang.reflect.Proxy.newProxyInstance(
+			TierLogicChecks.class.getClassLoader(), new Class<?>[] {net.minecraft.client.renderer.SubmitNodeCollector.class},
+			(proxy, method, arguments) -> {
+				if (!method.getName().equals("submitNameTag")) throw new AssertionError("unexpected renderer call: " + method);
+				calls.add(arguments);
+				return null;
+			});
+		var anchor = new net.minecraft.world.phys.Vec3(0, 2.35, 0);
+		new StandaloneTierTag(hidden.standalone(), anchor).submit(null, collector, 123, null);
+		check(calls.size() == 1, "standalone tag submitted exactly once");
+		check(calls.getFirst()[1] == anchor && calls.getFirst()[3] == hidden.standalone(), "standalone submission retains label and anchor");
+		check(Boolean.FALSE.equals(calls.getFirst()[4]), "standalone submission never requests through-wall rendering");
+		check(Integer.valueOf(123).equals(calls.getFirst()[5]), "standalone submission preserves light");
+	}
+
+	private static void checkApiDiagnostics() {
+		var missing = TierService.parseResponse(200, "{\"players\":[]}", "TestPlayer");
+		check(missing.successful() && missing.data() == null, "valid empty API result is not a network error");
+		for (int status : new int[] {403, 404, 429, 500, 503}) {
+			var error = TierService.parseResponse(status, "<html>error</html>", "TestPlayer");
+			check(!error.successful() && error.error().equals("HTTP " + status), "HTTP errors are not reported as no rank: " + status);
+		}
+		for (String body : List.of("{}", "not json", "{\"players\":{}}")) {
+			check(!TierService.parseResponse(200, body, "TestPlayer").successful(), "malformed API response has diagnostic error");
+		}
+		var found = TierService.parseResponse(200, "{\"players\":[{\"name\":\"TestPlayer\",\"kitRanks\":{\"sword\":\"HT2\"}}]}", "TestPlayer");
+		check(found.successful() && found.data().select("highest").orElseThrow().tier().equals("HT2"), "valid API tier remains successful");
 	}
 
 	private static void checkWorldPlayerPrefetch() {
@@ -219,6 +309,9 @@ public final class TierLogicChecks {
 			check(model.methods().stream().anyMatch(method -> method.methodName().equalsString("extractNameTags")
 				&& method.methodType().equalsString("(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/client/renderer/entity/state/EntityRenderState;FDD)V")),
 				"exact 26.2 nametag mixin target exists");
+			check(model.methods().stream().anyMatch(method -> method.methodName().equalsString("submitNameDisplay")
+				&& method.methodType().equalsString("(Lnet/minecraft/client/renderer/entity/state/EntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/level/CameraRenderState;I)V")),
+				"exact standalone tag submission mixin target exists");
 		}
 		try (var stream = TierLogicChecks.class.getClassLoader().getResourceAsStream("net/minecraft/client/multiplayer/ClientLevel.class")) {
 			check(stream != null, "Minecraft client world bytecode available");

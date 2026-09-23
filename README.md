@@ -5,26 +5,34 @@ TAB listesinde ve oyuncunun kafa üstünde şu biçimde tier etiketi ekler:
 
 `OyuncuAdı [oyun modu simgesi MCPVP HT2]`
 
-## 1.1.1 yenilikleri
+## 1.1.2 yenilikleri
 
-- Kafa üstü etiketleri açıkken dünyanda yüklü oyuncular her 20 istemci tick'inde
-  (normalde yaklaşık saniyede bir) profil adlarıyla sorgulanır. TAB'ı açmak veya
-  oyuncunun TAB'da listelenmesi gerekmez; sunucu listesi/önekleri isim kaynağı değildir.
-- Dünya değişince ve kafa üstü etiketlerini yeniden açınca ilk tarama hemen yapılır.
-  Önbellek ve devam eden isteklerin tekilleştirilmesi korunur; ağ isteği oyunu bekletmez.
-- Tier, renderer'ın hazırladığı son normal isim etiketine eklenir; `getNameTag`
-  metodunu özelleştiren renderer'lar için daha sağlam bir ekleme noktası kullanılır.
-- TAB dışı oyuncular, tarama aralığı, yeniden bağlanma ve görünmez isim etiketi
-  durumları için otomatik regresyon kontrolleri eklendi.
+1.1.1 yalnızca mevcut Minecraft isim etiketine tier ekliyordu. Sunucu normal etiketi
+boşaltıp/gizleyerek kendi hologramını çizdiğinde veri alınsa bile kafa üstünde tier görünmüyordu.
 
-### DonutSMP ve özel isim etiketleri
+- Normal isim etiketi yoksa, görünür oyuncunun üzerinde **ayrı bir tier satırı** çizilir.
+  Sunucunun hologramı ve oyuncu adı değiştirilmez; normal isim etiketi varsa tier yine sonuna eklenir.
+- Yeni satır yalnızca yakındaki (64 bloktan yakın), görüş hattındaki, görünür, yaşayan
+  oyunculara eklenir. Eğilmiş oyuncu, spectator, kendi oyuncun ve F1 ile gizlenmiş HUD hariçtir.
+  Bu satırda duvar arkasından çizim kapalıdır.
+- `/utier fallback` bu ek desteği açar/kapatır; varsayılan açık, eski ayarlarda otomatik etkinleşir.
+- `/utier debug` sürümü, ayarları ve en yakın görünür oyuncuların sorgu durumunu yerel sohbette gösterir.
+  `/utier debug <oyuncu>` ayrıca dünya/TAB varlığını, isim görünürlüğünü ve yeni API sorgusunu gösterir.
+- HTTP/bağlantı hatası artık yanlış biçimde “kayıt yok” mesajı olarak gösterilmez.
+- 1.1.1'deki TAB'dan bağımsız, yüklü oyuncu profillerini saniyede yaklaşık bir kez sorgulama korunur.
 
-Bu sürüm, **istemci dünyasında yüklü oyuncuların sorgulanmasını TAB'dan bağımsız yapar**.
-Sunucu normal isim etiketini tamamen gizleyip armor stand/text display gibi özel
-bir etiket çiziyorsa bu özel etikete ekleme yapılmaz. Nick/disguise arkasındaki gerçek
-kimlik veya sunucunun istemciye göndermediği oyuncular tahmin edilmez.
-DonutSMP üzerinde canlı oyun testi yapılmadı; sunucuya özel görünüm sorunu devam ederse
-oyun sürümü, mod listesi, ekran görüntüsü ve `logs/latest.log` ile ayrıca incelenmelidir.
+### DonutSMP testi
+
+Bu sürüm, özel isim etiketleri kullanıldığında vanilla etikete bağımlılığı kaldırır.
+**DonutSMP'de canlı oyun testi yapılmadı; kullanıcı 1.1.1'in yeterli olmadığını bildirdi.**
+MCPvP kaydı gerçek profil adıyla bulunmalı, oyuncu istemci dünyasında yüklü olmalıdır.
+Nick/disguise arkasındaki kimlik veya sunucunun göndermediği oyuncular tahmin edilmez.
+Özel hologramın yüksekliği farklı sunucularda değişebilir; ek tier satırının konumu oyun içinde
+kontrol edilmelidir. Başka bir mod etiket çizimini tamamen iptal ediyorsa ek inceleme gerekebilir.
+
+Güncellemeden sonra `/utier debug` sürüm satırında `1.1.2` göründüğünü kontrol et.
+Sorun devam ederse `/utier debug <tierini_bildiğin_oyuncu>` çıktısını ve o oyuncunun
+kafa üstünü gösteren bir ekran görüntüsünü paylaş.
 
 ## 1.1.0'dan korunan özellikler
 
@@ -43,7 +51,7 @@ oyun sürümü, mod listesi, ekran görüntüsü ve `logs/latest.log` ile ayrıc
 2. Minecraft 26.2 ile uyumlu Fabric API **0.153.0+26.2 veya üstünü** kur.
 3. Önceki Tier Tagger JAR'ını `mods` klasöründen çıkar. Eski ve yeni sürümü birlikte kurma.
 4. [Releases](https://github.com/uebasusta123/uebasusta123mcpvptieartagger/releases)
-   bölümündeki `uebasusta123mcpvptieartagger-1.1.1.jar` dosyasını `mods` klasörüne koy.
+   bölümündeki `uebasusta123mcpvptieartagger-1.1.2.jar` dosyasını `mods` klasörüne koy.
 5. Mod listesini/logoyu görmek için Minecraft sürümünle uyumlu Mod Menu kurulu olmalı.
    Mod Menu, tier etiketlerinin çalışması için zorunlu değildir.
 
@@ -76,6 +84,8 @@ Kısa komut `/utier` korunur; tam adla `/uebasusta123mcpvptieartagger` da kullan
 - `/utier mode <kit>`: İstersen belirli bir kit seç.
 - `/utier tab`: TAB etiketini aç/kapat.
 - `/utier nametag`: Kafa üstü etiketini aç/kapat.
+- `/utier fallback`: Normal etiketi olmayan oyuncular için ayrı tier satırını aç/kapat.
+- `/utier debug [oyuncu]`: Yerel teşhis; oyuncu verilirse MCPvP sorgusunu da yeniler.
 - `/utier icons`: Simgeleri aç/kapat; kapalıyken kit adı yazılır.
 - `/utier refresh`: Önbelleği temizle.
 
@@ -116,7 +126,8 @@ gradlew.bat build
 `build`, ayrıca `verifyTierLogic` doğrulamalarını çalıştırır:
 bütün tier çiftleri, eşitlik, eksik/bozuk kayıtlar, tam isim eşleşmesi,
 etiket sırası, simge-font eşleşmeleri, logo, sürüm gereksinimleri, TAB dışı oyuncu
-taraması ve gerçek Minecraft sınıflarındaki nametag mixin hedefi.
+taraması, özel etiket planı, görünürlük koşulları, duvar arkası çizimini kapatan gönderim,
+HTTP hata ayrımı ve gerçek Minecraft sınıflarındaki mixin hedefleri.
 Bu kontroller bir oyun istemcisi açmaz; oyun içi uçtan uca testin yerine geçmez.
 
 ### GitHub sürüm yayımlama

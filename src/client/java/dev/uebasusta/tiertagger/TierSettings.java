@@ -19,6 +19,7 @@ public final class TierSettings {
 	public boolean enabled = true;
 	public boolean showInTab = true;
 	public boolean showAboveHead = true;
+	public boolean showFallbackTags = true;
 	public boolean showKit = true;
 	public boolean showIcons = true;
 	public String mode = "highest";
