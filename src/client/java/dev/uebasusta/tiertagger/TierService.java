@@ -21,12 +21,14 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
+import java.util.regex.Pattern;
 
 public final class TierService {
 	private static final TierService INSTANCE = new TierService();
 	private static final String API_URL = "https://www.mcpvp.com/tiers/search?version=beta&kit=overall&include_retired=1&q=";
 	private static final long CACHE_TIME_MS = Duration.ofMinutes(30).toMillis();
 	private static final long ERROR_RETRY_MS = Duration.ofMinutes(1).toMillis();
+	private static final Pattern PLAYER_NAME = Pattern.compile("[A-Za-z0-9_]{3,16}");
 
 	private final HttpClient httpClient = HttpClient.newBuilder()
 		.connectTimeout(Duration.ofSeconds(8))
@@ -48,7 +50,7 @@ public final class TierService {
 	}
 
 	public TierData getOrQueue(String playerName) {
-		if (playerName == null || !playerName.matches("[A-Za-z0-9_]{3,16}")) {
+		if (!isValidPlayerName(playerName)) {
 			return null;
 		}
 		String key = normalize(playerName);
@@ -98,7 +100,7 @@ public final class TierService {
 			HttpRequest request = HttpRequest.newBuilder(URI.create(API_URL + encodedName))
 				.timeout(Duration.ofSeconds(12))
 				.header("Accept", "application/json")
-				.header("User-Agent", McpvpTierTaggerClient.MOD_ID + "/1.1.0")
+				.header("User-Agent", McpvpTierTaggerClient.MOD_ID + "/1.1.1")
 				.GET()
 				.build();
 			HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
@@ -162,6 +164,10 @@ public final class TierService {
 
 	private static String normalize(String name) {
 		return name.toLowerCase(Locale.ROOT);
+	}
+
+	static boolean isValidPlayerName(String name) {
+		return name != null && PLAYER_NAME.matcher(name).matches();
 	}
 
 	private record CacheEntry(TierData data, long expiresAt) {

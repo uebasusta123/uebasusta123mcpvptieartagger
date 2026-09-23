@@ -5,7 +5,28 @@ TAB listesinde ve oyuncunun kafa üstünde şu biçimde tier etiketi ekler:
 
 `OyuncuAdı [oyun modu simgesi MCPVP HT2]`
 
-## 1.1.0 yenilikleri
+## 1.1.1 yenilikleri
+
+- Kafa üstü etiketleri açıkken dünyanda yüklü oyuncular her 20 istemci tick'inde
+  (normalde yaklaşık saniyede bir) profil adlarıyla sorgulanır. TAB'ı açmak veya
+  oyuncunun TAB'da listelenmesi gerekmez; sunucu listesi/önekleri isim kaynağı değildir.
+- Dünya değişince ve kafa üstü etiketlerini yeniden açınca ilk tarama hemen yapılır.
+  Önbellek ve devam eden isteklerin tekilleştirilmesi korunur; ağ isteği oyunu bekletmez.
+- Tier, renderer'ın hazırladığı son normal isim etiketine eklenir; `getNameTag`
+  metodunu özelleştiren renderer'lar için daha sağlam bir ekleme noktası kullanılır.
+- TAB dışı oyuncular, tarama aralığı, yeniden bağlanma ve görünmez isim etiketi
+  durumları için otomatik regresyon kontrolleri eklendi.
+
+### DonutSMP ve özel isim etiketleri
+
+Bu sürüm, **istemci dünyasında yüklü oyuncuların sorgulanmasını TAB'dan bağımsız yapar**.
+Sunucu normal isim etiketini tamamen gizleyip armor stand/text display gibi özel
+bir etiket çiziyorsa bu özel etikete ekleme yapılmaz. Nick/disguise arkasındaki gerçek
+kimlik veya sunucunun istemciye göndermediği oyuncular tahmin edilmez.
+DonutSMP üzerinde canlı oyun testi yapılmadı; sunucuya özel görünüm sorunu devam ederse
+oyun sürümü, mod listesi, ekran görüntüsü ve `logs/latest.log` ile ayrıca incelenmelidir.
+
+## 1.1.0'dan korunan özellikler
 
 - Mod Menu adı, mod kimliği, dosya adı ve yardım mesajları: `uebasusta123mcpvptieartagger`.
 - Mod Menu listesi ve detayları için kullanıcının sağladığı kırmızı-siyah MCPVP / uebasusta123 logosu.
@@ -21,7 +42,8 @@ TAB listesinde ve oyuncunun kafa üstünde şu biçimde tier etiketi ekler:
 1. Minecraft 26.2, Java 25 ve Fabric Loader **0.19.3 veya üstü** kullan.
 2. Minecraft 26.2 ile uyumlu Fabric API **0.153.0+26.2 veya üstünü** kur.
 3. Önceki Tier Tagger JAR'ını `mods` klasöründen çıkar. Eski ve yeni sürümü birlikte kurma.
-4. `uebasusta123mcpvptieartagger-1.1.0.jar` dosyasını `mods` klasörüne koy.
+4. [Releases](https://github.com/uebasusta123/uebasusta123mcpvptieartagger/releases)
+   bölümündeki `uebasusta123mcpvptieartagger-1.1.1.jar` dosyasını `mods` klasörüne koy.
 5. Mod listesini/logoyu görmek için Minecraft sürümünle uyumlu Mod Menu kurulu olmalı.
    Mod Menu, tier etiketlerinin çalışması için zorunlu değildir.
 
@@ -93,8 +115,18 @@ gradlew.bat build
 Çıktı `build/libs/` içindedir. Kaynak JAR'ını (`-sources.jar`) oyuna kurma.
 `build`, ayrıca `verifyTierLogic` doğrulamalarını çalıştırır:
 bütün tier çiftleri, eşitlik, eksik/bozuk kayıtlar, tam isim eşleşmesi,
-etiket sırası, simge-font eşleşmeleri, logo ve sürüm gereksinimleri.
+etiket sırası, simge-font eşleşmeleri, logo, sürüm gereksinimleri, TAB dışı oyuncu
+taraması ve gerçek Minecraft sınıflarındaki nametag mixin hedefi.
 Bu kontroller bir oyun istemcisi açmaz; oyun içi uçtan uca testin yerine geçmez.
+
+### GitHub sürüm yayımlama
+
+`build` iş akışı push/PR üzerinde derleme ve test yapar. `release` iş akışı
+`release/<sürüm>` dalına push veya Actions ekranından elle çalıştırma ile derler,
+testler geçerse yeni GitHub Release'e JAR ve SHA-256 dosyasını ekler.
+Sürüm `gradle.properties` ve `docs/releases/<sürüm>.md` ile eşleşmelidir.
+Var olan sürümler veya dosyaları üzerine yazılmaz; yayımlama için GitHub'ın geçici
+iş akışı token'ı kullanılır, kişisel token gerekmez.
 
 ## Lisans
 

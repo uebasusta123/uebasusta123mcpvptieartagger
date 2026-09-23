@@ -4,6 +4,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
@@ -17,6 +18,14 @@ public final class McpvpTierTaggerClient implements ClientModInitializer {
 	public void onInitializeClient() {
 		TierSettings.load();
 		registerCommands();
+		PlayerTierPrefetcher prefetcher = new PlayerTierPrefetcher();
+		ClientTickEvents.END_CLIENT_TICK.register(client -> {
+			var level = client.level;
+			TierSettings settings = TierSettings.get();
+			prefetcher.tick(level, settings.enabled && settings.showAboveHead,
+				() -> level.players(), player -> player.getGameProfile().name(),
+				TierService.get()::getOrQueue);
+		});
 	}
 
 	private static void registerCommands() {
@@ -69,7 +78,7 @@ public final class McpvpTierTaggerClient implements ClientModInitializer {
 				}))
 				.then(ClientCommands.argument("player", StringArgumentType.word()).executes(context -> {
 					String playerName = StringArgumentType.getString(context, "player");
-					if (!playerName.matches("[A-Za-z0-9_]{3,16}")) {
+					if (!TierService.isValidPlayerName(playerName)) {
 						send(Component.literal("Geçersiz oyuncu adı.").withStyle(ChatFormatting.RED));
 						return 0;
 					}

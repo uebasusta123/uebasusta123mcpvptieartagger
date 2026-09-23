@@ -1,0 +1,64 @@
+name: release
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['release/**']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'uebasusta123/uebasusta123mcpvptieartagger'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'microsoft'
+      - name: Validate release version
+        id: version
+        shell: bash
+        run: |
+          VERSION=$(sed -n 's/^version=//p' gradle.properties)
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
+            [[ "$GITHUB_REF_NAME" == "release/$VERSION" ]]
+          fi
+          test -f "docs/releases/$VERSION.md"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      - name: Build and run regression checks
+        run: |
+          chmod +x ./gradlew
+          ./gradlew build
+      - name: Package checksum
+        working-directory: build/libs
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: sha256sum "uebasusta123mcpvptieartagger-$VERSION.jar" > SHA256SUMS.txt
+      - name: Publish new release (never overwrite)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "v$VERSION" \
+            "build/libs/uebasusta123mcpvptieartagger-$VERSION.jar" \
+            build/libs/SHA256SUMS.txt \
+            --target "$GITHUB_SHA" \
+            --title "uebasusta123mcpvptieartagger $VERSION" \
+            --notes-file "docs/releases/$VERSION.md"

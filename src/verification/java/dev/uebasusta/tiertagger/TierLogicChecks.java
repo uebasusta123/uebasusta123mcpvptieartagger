@@ -6,6 +6,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.FontDescription;
 
 import javax.imageio.ImageIO;
+import java.lang.classfile.ClassFile;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -15,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /** Run with ./gradlew verifyTierLogic (also part of build). Never connects to a server. */
 public final class TierLogicChecks {
@@ -78,6 +80,9 @@ public final class TierLogicChecks {
 		check(icon.getStyle().getFont() instanceof FontDescription.Resource font
 			&& font.id().toString().equals("uebasusta123mcpvptieartagger:kits"), "custom icon font");
 		check(!icon.getStyle().isBold() && !icon.getStyle().isItalic(), "icon not distorted by text style");
+		checkWorldPlayerPrefetch();
+		checkNameTagFormatting();
+		checkMinecraftTargets();
 
 		Path resources = Path.of("src/main/resources");
 		JsonObject metadata = JsonParser.parseString(Files.readString(resources.resolve("fabric.mod.json"))).getAsJsonObject();
@@ -131,7 +136,95 @@ public final class TierLogicChecks {
 			Files.deleteIfExists(legacy);
 			Files.deleteIfExists(configDir);
 		}
-		System.out.println("PASS: " + checks + " checks (ranking, API parsing, label layout, font resources, metadata/logo, settings migration)");
+		System.out.println("PASS: " + checks + " checks (ranking, API parsing, world-player prefetch, nametags, Minecraft targets, fonts, metadata, settings)");
+	}
+
+	private static void checkWorldPlayerPrefetch() {
+		PlayerTierPrefetcher prefetcher = new PlayerTierPrefetcher();
+		Object world = new Object();
+		List<String> queued = new ArrayList<>();
+		Supplier<Iterable<String>> unavailable = () -> {
+			throw new AssertionError("players read while disconnected, disabled, or throttled");
+		};
+		prefetcher.tick(null, true, unavailable, name -> name, queued::add);
+		prefetcher.tick(world, false, unavailable, name -> name, queued::add);
+		check(queued.isEmpty(), "no prefetch outside an enabled world");
+
+		// A server may omit WorldOnly from TAB and decorate its display name.
+		// Neither field is an identity source: only the loaded player's profile is used.
+		record LoadedPlayer(String profile, String display, boolean listedInTab) {}
+		List<LoadedPlayer> players = List.of(
+			new LoadedPlayer("WorldOnly", "[VIP] SomeoneElse", false),
+			new LoadedPlayer("TabVisible", "TabVisible", true),
+			new LoadedPlayer("worldonly", "duplicate", false),
+			new LoadedPlayer("[NPC] Fake", "Fake", true),
+			new LoadedPlayer(null, "Missing profile", false));
+		prefetcher.tick(world, true, () -> players, LoadedPlayer::profile, queued::add);
+		check(queued.equals(List.of("WorldOnly", "TabVisible")), "unlisted world player queried by profile, duplicates and bad names ignored");
+		queued.clear();
+		for (int tick = 1; tick < PlayerTierPrefetcher.SCAN_INTERVAL_TICKS; tick++) {
+			prefetcher.tick(world, true, unavailable, name -> name, queued::add);
+		}
+		check(queued.isEmpty(), "no per-frame scanning");
+		prefetcher.tick(world, true, () -> List.of("WorldOnly", "NewArrival"), name -> name, queued::add);
+		check(queued.equals(List.of("WorldOnly", "NewArrival")), "rescan retries cache lookups, discovers arrivals, forgets departed players");
+		queued.clear();
+		prefetcher.tick(new Object(), true, () -> List.of("OtherWorld"), name -> name, queued::add);
+		check(queued.equals(List.of("OtherWorld")), "dimension/server change scans immediately");
+		queued.clear();
+		prefetcher.tick(null, true, unavailable, name -> name, queued::add);
+		prefetcher.tick(world, true, () -> List.of("Rejoined"), name -> name, queued::add);
+		check(queued.equals(List.of("Rejoined")), "disconnect resets scanner");
+		queued.clear();
+		prefetcher.tick(world, false, unavailable, name -> name, queued::add);
+		prefetcher.tick(world, true, () -> List.of("Reenabled"), name -> name, queued::add);
+		check(queued.equals(List.of("Reenabled")), "reenabling nametags scans immediately");
+		queued.clear();
+		prefetcher.tick(new Object(), true, List::<String>of, name -> name, queued::add);
+		check(queued.isEmpty(), "empty world is safe");
+
+		for (String valid : List.of("Ab_", "0123456789abcdef", "TestPlayer", "testplayer")) {
+			check(TierService.isValidPlayerName(valid), "valid profile name: " + valid);
+		}
+		for (String invalid : new String[] {null, "", "ab", "0123456789abcdefg", "[VIP] TestPlayer", "Player One", " Oyuncu", ".Bedrock"}) {
+			check(!TierService.isValidPlayerName(invalid), "reject invalid profile name: " + invalid);
+		}
+	}
+
+	private static void checkNameTagFormatting() {
+		TierSettings settings = TierSettings.get();
+		Component original = Component.literal("[VIP] WorldOnly").withStyle(net.minecraft.ChatFormatting.GREEN);
+		Component result = TierTagFormatter.appendTag(original, data(Map.of("sword", "HT2")), settings);
+		check(result.getString().equals("[VIP] WorldOnly [\uE000 MCPVP HT2]"), "world-only player receives tag without TAB component");
+		check(original.getString().equals("[VIP] WorldOnly"), "server name component not mutated");
+		check(result.getStyle().equals(original.getStyle()), "server prefix style preserved");
+		check(TierTagFormatter.appendTag(original, (TierData) null, settings) == original, "pending/failed lookup preserves name");
+		check(TierTagFormatter.appendTag(original, data(Map.of()), settings) == original, "no fabricated rank for unranked player");
+		check(TierTagFormatter.appendTag(null, data(Map.of("sword", "HT2")), settings) == null, "hidden nametag not forced visible");
+		check(TierTagFormatter.appendTag(null, "WorldOnly") == null, "hidden nametag does not enqueue HTTP request");
+		settings.enabled = false;
+		try {
+			check(TierTagFormatter.appendTag(original, data(Map.of("sword", "HT2")), settings) == original, "disabled mod preserves name");
+		} finally {
+			settings.enabled = true;
+		}
+	}
+
+	private static void checkMinecraftTargets() throws Exception {
+		// Inspect actual target bytecode without booting the game or loading renderer natives.
+		String renderer = "net/minecraft/client/renderer/entity/EntityRenderer.class";
+		try (var stream = TierLogicChecks.class.getClassLoader().getResourceAsStream(renderer)) {
+			check(stream != null, "Minecraft renderer bytecode available");
+			var model = ClassFile.of().parse(stream.readAllBytes());
+			check(model.methods().stream().anyMatch(method -> method.methodName().equalsString("extractNameTags")
+				&& method.methodType().equalsString("(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/client/renderer/entity/state/EntityRenderState;FDD)V")),
+				"exact 26.2 nametag mixin target exists");
+		}
+		try (var stream = TierLogicChecks.class.getClassLoader().getResourceAsStream("net/minecraft/client/multiplayer/ClientLevel.class")) {
+			check(stream != null, "Minecraft client world bytecode available");
+			check(ClassFile.of().parse(stream.readAllBytes()).methods().stream().anyMatch(method -> method.methodName().equalsString("players")
+				&& method.methodType().equalsString("()Ljava/util/List;")), "loaded-world player source exists independently of TAB");
+		}
 	}
 
 	private static TierData data(Map<String, String> ranks) {

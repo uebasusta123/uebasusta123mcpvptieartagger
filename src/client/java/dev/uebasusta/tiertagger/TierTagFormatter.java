@@ -23,11 +23,14 @@ public final class TierTagFormatter {
 
 	public static Component appendTag(Component original, String playerName) {
 		TierSettings settings = TierSettings.get();
-		if (!settings.enabled) {
+		if (original == null || !settings.enabled) {
 			return original;
 		}
-		TierData data = TierService.get().getOrQueue(playerName);
-		if (data == null) {
+		return appendTag(original, TierService.get().getOrQueue(playerName), settings);
+	}
+
+	static Component appendTag(Component original, TierData data, TierSettings settings) {
+		if (original == null || !settings.enabled || data == null) {
 			return original;
 		}
 		return data.select(settings.mode)
