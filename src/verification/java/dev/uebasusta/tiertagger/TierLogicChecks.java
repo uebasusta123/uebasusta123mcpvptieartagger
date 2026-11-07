@@ -96,8 +96,9 @@ public final class TierLogicChecks {
 		check(metadata.get("id").getAsString().equals("uebasusta123mcpvptieartagger"), "mod identity");
 		check(metadata.get("name").getAsString().equals(metadata.get("id").getAsString()), "display name");
 		check(metadata.get("environment").getAsString().equals("client"), "client-only");
-		check(metadata.getAsJsonObject("depends").get("fabricloader").getAsString().equals(">=0.19.3"), "loader baseline");
-		check(metadata.getAsJsonObject("depends").get("fabric-api").getAsString().equals(">=0.153.0+26.2"), "API baseline");
+		check(metadata.getAsJsonObject("depends").get("minecraft").getAsString().equals("~26.3"), "Minecraft 26.3 requirement");
+		check(metadata.getAsJsonObject("depends").get("fabricloader").getAsString().equals(">=0.19.5"), "loader baseline");
+		check(metadata.getAsJsonObject("depends").get("fabric-api").getAsString().equals(">=0.165.2+26.3"), "API baseline");
 		var image = ImageIO.read(resources.resolve(metadata.get("icon").getAsString()).toFile());
 		check(image != null && image.getWidth() == 128 && image.getHeight() == 128, "Mod Menu logo 128x128 PNG");
 		JsonObject fonts = JsonParser.parseString(Files.readString(resources.resolve("assets/uebasusta123mcpvptieartagger/font/kits.json"))).getAsJsonObject();
@@ -308,10 +309,16 @@ public final class TierLogicChecks {
 			var model = ClassFile.of().parse(stream.readAllBytes());
 			check(model.methods().stream().anyMatch(method -> method.methodName().equalsString("extractNameTags")
 				&& method.methodType().equalsString("(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/client/renderer/entity/state/EntityRenderState;FDD)V")),
-				"exact 26.2 nametag mixin target exists");
+				"exact 26.3 nametag mixin target exists");
 			check(model.methods().stream().anyMatch(method -> method.methodName().equalsString("submitNameDisplay")
 				&& method.methodType().equalsString("(Lnet/minecraft/client/renderer/entity/state/EntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/level/CameraRenderState;I)V")),
 				"exact standalone tag submission mixin target exists");
+		}
+		try (var stream = TierLogicChecks.class.getClassLoader().getResourceAsStream("net/minecraft/client/gui/components/PlayerTabOverlay.class")) {
+			check(stream != null, "Minecraft TAB overlay bytecode available");
+			check(ClassFile.of().parse(stream.readAllBytes()).methods().stream().anyMatch(method -> method.methodName().equalsString("getNameForDisplay")
+				&& method.methodType().equalsString("(Lnet/minecraft/client/multiplayer/PlayerInfo;)Lnet/minecraft/network/chat/Component;")),
+				"exact TAB name mixin target exists");
 		}
 		try (var stream = TierLogicChecks.class.getClassLoader().getResourceAsStream("net/minecraft/client/multiplayer/ClientLevel.class")) {
 			check(stream != null, "Minecraft client world bytecode available");

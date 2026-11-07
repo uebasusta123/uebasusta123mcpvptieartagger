@@ -1,11 +1,22 @@
 # uebasusta123mcpvptieartagger
 
-Minecraft Java **26.2** için açık kaynak, yalnızca istemcide çalışan Fabric modu.
+Minecraft Java **26.3** için açık kaynak, yalnızca istemcide çalışan Fabric modu.
 TAB listesinde ve oyuncunun kafa üstünde şu biçimde tier etiketi ekler:
 
 `OyuncuAdı [oyun modu simgesi MCPVP HT2]`
 
-## 1.1.2 yenilikleri
+## 1.2.0 yenilikleri
+
+- Minecraft **26.3** için güncellendi.
+- Hedef gereksinimler: Java 25, Fabric Loader **0.19.5+** ve Minecraft 26.3 için
+  Fabric API **0.165.2+26.3 veya üstü**.
+- TAB ve kafa üstü tier etiketleri, komutlar ve önceki ayar dosyası korunur.
+- Kurulum dosyası: `uebasusta123mcpvptieartagger-1.2.0.jar`.
+
+Derleme ve doğrulamanın güncel durumu [BUILD_NOTES.md](BUILD_NOTES.md) içindedir.
+Minecraft 26.3'te oyun içi görünüm ve DonutSMP testi henüz yapılmadı.
+
+## Önceki sürüm: 1.1.2 yenilikleri
 
 1.1.1 yalnızca mevcut Minecraft isim etiketine tier ekliyordu. Sunucu normal etiketi
 boşaltıp/gizleyerek kendi hologramını çizdiğinde veri alınsa bile kafa üstünde tier görünmüyordu.
@@ -47,13 +58,16 @@ kafa üstünü gösteren bir ekran görüntüsünü paylaş.
 
 ## Kurulum / güncelleme
 
-1. Minecraft 26.2, Java 25 ve Fabric Loader **0.19.3 veya üstü** kullan.
-2. Minecraft 26.2 ile uyumlu Fabric API **0.153.0+26.2 veya üstünü** kur.
+1. Minecraft 26.3, Java 25 ve Fabric Loader **0.19.5 veya üstü** kullan.
+2. Minecraft 26.3 ile uyumlu Fabric API **0.165.2+26.3 veya üstünü** kur.
 3. Önceki Tier Tagger JAR'ını `mods` klasöründen çıkar. Eski ve yeni sürümü birlikte kurma.
 4. [Releases](https://github.com/uebasusta123/uebasusta123mcpvptieartagger/releases)
-   bölümündeki `uebasusta123mcpvptieartagger-1.1.2.jar` dosyasını `mods` klasörüne koy.
+   bölümünden veya dağıtılan çıktılardan `uebasusta123mcpvptieartagger-1.2.0.jar`
+   dosyasını `mods` klasörüne koy.
 5. Mod listesini/logoyu görmek için Minecraft sürümünle uyumlu Mod Menu kurulu olmalı.
    Mod Menu, tier etiketlerinin çalışması için zorunlu değildir.
+
+Oyuna girdikten sonra `/utier debug` sürüm satırında `1.2.0` göründüğünü kontrol et.
 
 Sunucu eklentisi, sunucu resource pack'i veya başka oyuncuların bu modu kurması gerekmez.
 Etiketleri yalnızca modu kullanan kişi görür. Mod veya resource pack çakışmaları olabilir;
