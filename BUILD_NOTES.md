@@ -5,8 +5,13 @@
 - Kurulum dosyası: `uebasusta123mcpvptieartagger-1.2.0.jar`.
 - Portun kapsamı Minecraft 26.3 desteğidir; TAB/kafa üstü etiketleri, komutlar ve
   önceki ayarlar korunur.
-- Tam Gradle derlemesi, otomatik regresyon kontrolleri ve Minecraft 26.3 mixin
-  hedefleri için doğrulama sonucu henüz kaydedilmedi.
+- GitHub Actions / Ubuntu 24.04 üzerinde `./gradlew build` başarılı:
+  [derleme kaydı](https://github.com/uebasusta123/uebasusta123mcpvptieartagger/actions/runs/42380429107).
+- 433 otomatik kontrol geçti: tier sıralaması, API ayrıştırma, dünya oyuncuları,
+  isim etiketleri, ayarlar, fontlar ve mod bilgileri. Kafa üstü çizimi ve TAB
+  mixin hedefleri gerçek Minecraft 26.3 bytecode'unda doğrulandı.
+- Yerel Windows derlemesi Java ZIP dosya sisteminde dosya erişim hatasına takıldı;
+  tam derleme ve kontroller GitHub'ın Linux ortamında tamamlandı.
 - Minecraft 26.3 veya DonutSMP'de oyun içi görsel test henüz yapılmadı.
 
 ## 1.2.0 için oyun içi kontrol
