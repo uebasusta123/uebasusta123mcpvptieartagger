@@ -1,4 +1,30 @@
-# 1.1.2 doğrulama notları
+# 1.2.0 doğrulama notları
+
+- Hedef: Minecraft 26.3, Java 25, Fabric Loader 0.19.5, Fabric API 0.165.2+26.3.
+- Derleme araçları: Gradle 9.6.0 ve Loom 1.17.21.
+- Kurulum dosyası: `uebasusta123mcpvptieartagger-1.2.0.jar`.
+- Portun kapsamı Minecraft 26.3 desteğidir; TAB/kafa üstü etiketleri, komutlar ve
+  önceki ayarlar korunur.
+- GitHub Actions / Ubuntu 24.04 üzerinde `./gradlew build` başarılı:
+  [derleme kaydı](https://github.com/uebasusta123/uebasusta123mcpvptieartagger/actions/runs/42380429107).
+- 433 otomatik kontrol geçti: tier sıralaması, API ayrıştırma, dünya oyuncuları,
+  isim etiketleri, ayarlar, fontlar ve mod bilgileri. Kafa üstü çizimi ve TAB
+  mixin hedefleri gerçek Minecraft 26.3 bytecode'unda doğrulandı.
+- Yerel Windows derlemesi Java ZIP dosya sisteminde dosya erişim hatasına takıldı;
+  tam derleme ve kontroller GitHub'ın Linux ortamında tamamlandı.
+- Minecraft 26.3 veya DonutSMP'de oyun içi görsel test henüz yapılmadı.
+
+## 1.2.0 için oyun içi kontrol
+
+1. Minecraft 26.3 için Fabric Loader ve Fabric API'yi kur; eski mod JAR'ını çıkarıp
+   `uebasusta123mcpvptieartagger-1.2.0.jar` dosyasını koy ve oyunu yeniden başlat.
+2. `/utier debug` ile sürümün 1.2.0 olduğunu ve önceki ayarlarının yüklendiğini doğrula.
+3. Tieri bilinen bir oyuncuyu TAB'da ve kafa üstünde kontrol et; normal isimde tek etiket görünmeli.
+4. Normal etiketi gizlenen, TAB'da olmayan yakındaki bir oyuncuda ayrı tier satırını kontrol et.
+5. Ayrı satır duvar arkasında, eğilirken, görünmezken, 64 blok ve ötesinde veya F1 açıkken görünmemeli.
+6. `/utier fallback` ve `/utier nametag` ile kapatmayı, simgeleri ve yeniden bağlanmayı kontrol et.
+
+## Önceki sürüm: 1.1.2 doğrulama notları
 
 - Hedef: Minecraft 26.2, Java 25, Fabric Loader 0.19.3, Fabric API 0.153.0+26.2.
 - Yeni çizim vanilla isim etiketi null/boş olsa da bağımsız bir tier bileşeni kullanır.

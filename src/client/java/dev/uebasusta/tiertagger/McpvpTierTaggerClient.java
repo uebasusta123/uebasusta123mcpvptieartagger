@@ -13,7 +13,7 @@ import java.util.Locale;
 
 public final class McpvpTierTaggerClient implements ClientModInitializer {
 	public static final String MOD_ID = "uebasusta123mcpvptieartagger";
-	public static final String VERSION = "1.1.2";
+	public static final String VERSION = "1.2.0";
 
 	@Override
 	public void onInitializeClient() {
